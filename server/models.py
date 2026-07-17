@@ -5,9 +5,7 @@ from datetime import date
 db = SQLAlchemy()
 
 
-# -----------------------------
-# Exercise Model
-# -----------------------------
+
 class Exercise(db.Model):
     __tablename__ = "exercises"
 
@@ -19,7 +17,6 @@ class Exercise(db.Model):
 
     equipment_needed = db.Column(db.Boolean, nullable=False, default=False)
 
-    # Relationships
     workout_exercises = db.relationship(
         "WorkoutExercise",
         back_populates="exercise",
@@ -32,7 +29,7 @@ class Exercise(db.Model):
         viewonly=True
     )
 
-    # Model Validations
+    
     @validates("name")
     def validate_name(self, key, value):
         if not value or len(value.strip()) < 3:
