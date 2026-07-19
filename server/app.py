@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_migrate import Migrate
+from marshmallow import ValidationError
 from datetime import date
 
 from models import db, Exercise, Workout, WorkoutExercise
+from schemas import ExerciseSchema, WorkoutSchema, WorkoutExerciseSchema
 
 app = Flask(__name__)
 
@@ -10,11 +12,15 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
-
 migrate = Migrate(app, db)
 
+exercise_schema = ExerciseSchema()
+workout_schema = WorkoutSchema()
+workout_exercise_schema = WorkoutExerciseSchema()
 
 
+
+@app.get("/workouts")
 def get_workouts():
 
     workouts = Workout.query.all()
@@ -30,6 +36,7 @@ def get_workouts():
         })
 
     return jsonify(results), 200
+
 
 
 @app.get("/workouts/<int:id>")
@@ -61,16 +68,18 @@ def get_workout(id):
     }), 200
 
 
+
 @app.post("/workouts")
 def create_workout():
 
-    data = request.get_json()
+    try:
+        data = workout_schema.load(request.get_json())
 
-    if not data:
-        return jsonify({"error": "No input data"}), 400
+    except ValidationError as err:
+        return jsonify(err.messages), 400
 
     workout = Workout(
-        date=date.fromisoformat(data["date"]),
+        date=data["date"],
         duration_minutes=data["duration_minutes"],
         notes=data.get("notes")
     )
@@ -153,10 +162,11 @@ def get_exercise(id):
 @app.post("/exercises")
 def create_exercise():
 
-    data = request.get_json()
+    try:
+        data = exercise_schema.load(request.get_json())
 
-    if not data:
-        return jsonify({"error": "No input data"}), 400
+    except ValidationError as err:
+        return jsonify(err.messages), 400
 
     exercise = Exercise(
         name=data["name"],
@@ -203,10 +213,15 @@ def add_exercise_to_workout(workout_id, exercise_id):
     if exercise is None:
         return jsonify({"error": "Exercise not found"}), 404
 
-    data = request.get_json()
+    try:
+        data = workout_exercise_schema.load({
+            "workout_id": workout_id,
+            "exercise_id": exercise_id,
+            **request.get_json()
+        })
 
-    if not data:
-        return jsonify({"error": "No input data"}), 400
+    except ValidationError as err:
+        return jsonify(err.messages), 400
 
     workout_exercise = WorkoutExercise(
         workout_id=workout_id,
